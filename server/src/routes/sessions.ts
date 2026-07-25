@@ -3,16 +3,10 @@ import db from '../models/database';
 
 const router = Router();
 
-// GET /api/sessions - list sessions (optionally filter by employee)
+// GET /api/sessions - list all sessions (optionally filter by status only)
 router.get('/', (req: Request, res: Response) => {
   try {
-    const { employee_id, status } = req.query as { employee_id?: string; status?: string };
-    // Validate employee_id is a safe integer before using in query
-    const employeeIdNum = employee_id ? parseInt(employee_id, 10) : undefined;
-    if (employee_id && (isNaN(employeeIdNum!) || employeeIdNum! <= 0)) {
-      res.status(400).json({ error: 'Invalid employee_id' });
-      return;
-    }
+    const { status } = req.query as { status?: string };
     // Validate status is one of the allowed values
     const allowedStatuses = ['open', 'closed'];
     if (status && !allowedStatuses.includes(status)) {
@@ -29,10 +23,42 @@ router.get('/', (req: Request, res: Response) => {
       WHERE 1=1
     `;
     const params: (string | number)[] = [];
-    if (employeeIdNum) {
-      query += ' AND cs.employee_id = ?';
-      params.push(employeeIdNum);
+    if (status) {
+      query += ' AND cs.status = ?';
+      params.push(status);
     }
+    query += ' GROUP BY cs.id ORDER BY cs.started_at DESC LIMIT 100';
+    const sessions = db.prepare(query).all(...params);
+    res.json(sessions);
+  } catch (err) {
+    res.status(500).json({ error: 'Error retrieving sessions' });
+  }
+});
+
+// GET /api/sessions/employee/:employeeId - list sessions for a specific employee
+router.get('/employee/:employeeId', (req: Request, res: Response) => {
+  try {
+    const employeeIdNum = parseInt(req.params.employeeId, 10);
+    if (isNaN(employeeIdNum) || employeeIdNum <= 0) {
+      res.status(400).json({ error: 'Invalid employee ID' });
+      return;
+    }
+    const { status } = req.query as { status?: string };
+    const allowedStatuses = ['open', 'closed'];
+    if (status && !allowedStatuses.includes(status)) {
+      res.status(400).json({ error: 'Invalid status filter' });
+      return;
+    }
+    let query = `
+      SELECT cs.id, cs.employee_id, e.code AS employee_code, e.name AS employee_name,
+             cs.location, cs.status, cs.started_at, cs.ended_at, cs.notes,
+             COUNT(ci.id) AS item_count
+      FROM count_sessions cs
+      JOIN employees e ON cs.employee_id = e.id
+      LEFT JOIN count_items ci ON ci.session_id = cs.id
+      WHERE cs.employee_id = ?
+    `;
+    const params: (string | number)[] = [employeeIdNum];
     if (status) {
       query += ' AND cs.status = ?';
       params.push(status);

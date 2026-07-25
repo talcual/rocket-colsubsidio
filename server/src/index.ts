@@ -27,6 +27,13 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts, please try again later.' },
 });
 
+const staticLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(cors());
 app.use(express.json());
 
@@ -50,8 +57,9 @@ app.get('/api/health', (_req, res) => {
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {
   const staticPath = path.join(__dirname, '../../client/dist');
+  app.use(staticLimiter);
   app.use(express.static(staticPath));
-  app.get('*', (_req, res) => {
+  app.get('*', staticLimiter, (_req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
   });
 }

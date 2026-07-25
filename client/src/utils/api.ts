@@ -25,8 +25,13 @@ export const productApi = {
 };
 
 export const sessionApi = {
-  list: (params?: { employee_id?: number; status?: string }) =>
-    api.get<CountSession[]>('/sessions', { params }).then(r => r.data),
+  list: (params?: { employee_id?: number; status?: string }) => {
+    if (params?.employee_id) {
+      const query = params.status ? `?status=${encodeURIComponent(params.status)}` : '';
+      return api.get<CountSession[]>(`/sessions/employee/${params.employee_id}${query}`).then(r => r.data);
+    }
+    return api.get<CountSession[]>('/sessions', { params: params?.status ? { status: params.status } : {} }).then(r => r.data);
+  },
   get: (id: number) =>
     api.get<CountSession & { items: CountItem[] }>(`/sessions/${id}`).then(r => r.data),
   create: (employee_id: number, location?: string) =>
