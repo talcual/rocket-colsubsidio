@@ -7,6 +7,18 @@ const router = Router();
 router.get('/', (req: Request, res: Response) => {
   try {
     const { employee_id, status } = req.query as { employee_id?: string; status?: string };
+    // Validate employee_id is a safe integer before using in query
+    const employeeIdNum = employee_id ? parseInt(employee_id, 10) : undefined;
+    if (employee_id && (isNaN(employeeIdNum!) || employeeIdNum! <= 0)) {
+      res.status(400).json({ error: 'Invalid employee_id' });
+      return;
+    }
+    // Validate status is one of the allowed values
+    const allowedStatuses = ['open', 'closed'];
+    if (status && !allowedStatuses.includes(status)) {
+      res.status(400).json({ error: 'Invalid status filter' });
+      return;
+    }
     let query = `
       SELECT cs.id, cs.employee_id, e.code AS employee_code, e.name AS employee_name,
              cs.location, cs.status, cs.started_at, cs.ended_at, cs.notes,
@@ -17,9 +29,9 @@ router.get('/', (req: Request, res: Response) => {
       WHERE 1=1
     `;
     const params: (string | number)[] = [];
-    if (employee_id) {
+    if (employeeIdNum) {
       query += ' AND cs.employee_id = ?';
-      params.push(Number(employee_id));
+      params.push(employeeIdNum);
     }
     if (status) {
       query += ' AND cs.status = ?';
