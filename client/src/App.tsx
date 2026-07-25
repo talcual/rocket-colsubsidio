@@ -2,45 +2,66 @@ import { useState } from 'react';
 import LoginPage from './pages/LoginPage';
 import SessionsPage from './pages/SessionsPage';
 import CountPage from './pages/CountPage';
-import AuditPage from './pages/AuditPage';
+import BackofficePage from './pages/BackofficePage';
+import ModeSelectorPage from './pages/ModeSelectorPage';
 import type { Employee, CountSession } from './types';
 
-type AppView = 'login' | 'sessions' | 'count' | 'audit';
+type AppEnvironment = 'selector' | 'external' | 'backoffice';
+type ExternalView = 'login' | 'sessions' | 'count';
 
 export default function App() {
-  const [view, setView] = useState<AppView>('login');
+  const [environment, setEnvironment] = useState<AppEnvironment>('selector');
+  const [externalView, setExternalView] = useState<ExternalView>('login');
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [activeSession, setActiveSession] = useState<CountSession | null>(null);
 
   const handleLogin = (emp: Employee) => {
     setEmployee(emp);
-    setView('sessions');
+    setExternalView('sessions');
   };
 
   const handleStartSession = (session: CountSession) => {
     setActiveSession(session);
-    setView('count');
+    setExternalView('count');
   };
 
   const handleResumeSession = (session: CountSession) => {
     setActiveSession(session);
-    setView('count');
+    setExternalView('count');
   };
 
   const handleSessionClose = () => {
     setActiveSession(null);
-    setView('sessions');
+    setExternalView('sessions');
   };
 
-  if (view === 'login' || !employee) {
+  const resetExternalFlow = () => {
+    setEmployee(null);
+    setActiveSession(null);
+    setExternalView('login');
+  };
+
+  if (environment === 'selector') {
+    return (
+      <ModeSelectorPage
+        onSelectBackoffice={() => setEnvironment('backoffice')}
+        onSelectExternal={() => {
+          resetExternalFlow();
+          setEnvironment('external');
+        }}
+      />
+    );
+  }
+
+  if (environment === 'backoffice') {
+    return <BackofficePage onBack={() => setEnvironment('selector')} />;
+  }
+
+  if (externalView === 'login' || !employee) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  if (view === 'audit') {
-    return <AuditPage onBack={() => setView('sessions')} />;
-  }
-
-  if (view === 'count' && activeSession) {
+  if (externalView === 'count' && activeSession) {
     return (
       <CountPage
         employee={employee}
@@ -55,7 +76,7 @@ export default function App() {
       employee={employee}
       onStartNewSession={handleStartSession}
       onResumeSession={handleResumeSession}
-      onViewAudit={() => setView('audit')}
+      onExit={() => setEnvironment('selector')}
     />
   );
 }
